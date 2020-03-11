@@ -1,0 +1,118 @@
+---
+title: "Lab 4 Team"
+author: "Meredith Tucker, (mltucker2001) and Mike Zaino, (mzaino16)"
+date: "3/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(tidyverse)
+library(readxl)
+library(tidyr)
+```
+
+
+```{r}
+defense <- read_excel('cyclonesFootball2019.xlsx', sheet='Defensive')
+str(defense)
+offense <- read_excel('cyclonesFootball2019.xlsx', sheet='Offensive')
+str(offense)
+biography <- read_excel('cyclonesFootball2019.xlsx', sheet='Biography')
+str(biography)
+```
+
+# Part One
+1.) The player names and opponent names are factors.
+
+```{r}
+defclean <- defense %>% 
+  mutate_at(c('Name', 'Opponent_Opponent'), factor)
+
+offclean <- offense %>% 
+  mutate_at(c('Name', 'Opponent_Opponent'), factor)
+
+bioclean <- biography %>% 
+  mutate_at(c('Name'), factor)
+```
+
+
+2.) All offensive and defensive statistics are numerical. The Weight column in biogrpahy is also numeric. (Hint: look at ?mutate_at if you want to save writing some code).
+
+```{r}
+defclean <- defclean %>% 
+  mutate_at(c(3,4,5,6,7,8,9,10,11), as.numeric)
+offclean <- offclean %>% 
+  mutate_at(c(3,4,5,6,7,8,9,10,11, 12), as.numeric)
+
+head(defclean)
+head(offclean)
+
+```
+
+
+3.) Change the Height column in biogrpahy into numeric. (Hint: Use a unit that works well)
+```{r}
+bioclean <- bioclean %>% 
+  separate(Height, c('Feet', 'Inches'), sep='-', convert=TRUE) %>% mutate(cm = (12*Feet + Inches) *2.54)
+head(bioclean)
+```
+
+# Part 2
+
+For the following questions, work on the cleaned data frames defClean, offClean, and bioClean.
+
+1.) Reformat the defClean data frame into a tidy format using pivot_longer. The type of statistic (Tackles_Solo, Tackles_ASST, etc) is added as a new key column named Statistic.
+```{r}
+
+longdefclean <- defclean %>% 
+  pivot_longer(c(3:11), names_to='Statistic', values_to='Score')
+
+```
+
+
+2.) Create a histogram for each defensive statistic. Use facet_wrap to draw all histograms in a single plot. What defensive skills are rare?
+```{r}
+longdefclean %>% 
+  ggplot(aes(x=Score, fill=Statistic)) + geom_histogram() + facet_wrap(~Statistic)
+```
+
+
+
+3.) Did ISU have better defense against West Virginia or Kansas State? Answer this question by creating a scatterplot with x-axis being the number of solo tackles (by each player) against West Virginia, and y-axis being that against Kansas State. A large number of solo tackles indicates good defense.
+
+```{r}
+longdefclean %>% 
+  filter(Opponent_Opponent == 'West Virginia' | Opponent_Opponent =='Kansas State') %>% 
+  filter(Statistic == 'Tackles_Solo') %>% 
+  group_by(Name) %>% 
+  mutate(Count = n()) %>% 
+  filter(Count== 2) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = Opponent_Opponent, values_from = Score) %>% 
+  ggplot(aes(x=`West Virginia`, y=`Kansas State`)) + geom_point() + stat_smooth(method=lm)
+```
+
+West Virginia has more Solo Tackles than Kansas State. Iowa State had a better defense against West Virginia than against Kansas State. 
+
+# Now turn our attention to the player biography.
+
+1.) Separate the Hometown column into two columns, namely the city and the state. Print the first few rows of these two columns. (Hint: look at the sep= argument of separate)
+
+```{r}
+bioclean <- bioclean %>% 
+  separate(Hometown, c('City', 'State'), sep=',', convert=TRUE)
+head(bioclean)
+```
+
+
+2.) How many players are there from each state?
+```{r}
+bioclean %>%
+  group_by(State) %>% 
+  summarize(n=n())
+```
+
+
+
+
