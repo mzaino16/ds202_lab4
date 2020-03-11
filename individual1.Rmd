@@ -1,0 +1,145 @@
+---
+title: "Lab 4"
+author: "Mike Zaino - mzaino16"
+date: "3/5/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(tidyverse)
+library(tidyr)
+library(readxl)
+```
+
+# Part 1
+
+1. The player names and opponent names are factors.
+2. All offensive and defensive statistics are numerical. The Weight column in biogrpahy is also numeric. (Hint: look at ?mutate_at if you want to save writing some code).
+3. Change the Height column in biogrpahy into numeric. (Hint: Use a unit that works well)
+
+```{r}
+offense <- read_excel('/Users/TheemikezanilyMac/Documents/School/DS 202/Class Notes/cyclonesFootball2019.xlsx', sheet='Offensive')
+defense <- read_excel('/Users/TheemikezanilyMac/Documents/School/DS 202/Class Notes/cyclonesFootball2019.xlsx', sheet='Defensive')
+biography <- read_excel('/Users/TheemikezanilyMac/Documents/School/DS 202/Class Notes/cyclonesFootball2019.xlsx', sheet='Biography')
+
+offclean <- offense %>% 
+  mutate_at(c(1,2), factor) %>% 
+  mutate_at(c(3,4,5,6,7,8,9,10,11,12), as.numeric)
+
+defclean <- defense %>% 
+  mutate_at(c(1,2), factor) %>% 
+  mutate_at(c(3,4,5,6,7,8,9,10,11), as.numeric)
+
+bioclean <- biography %>% 
+  mutate_at(c(1,2,5,6,7), factor) %>% 
+  mutate_at(c(4), as.numeric) %>% 
+  separate(Height, c('feet', 'inches'), "-", convert = TRUE) %>% 
+  mutate(cm = (12*feet + inches)*2.54)
+
+defclean %>% head()
+offclean %>% head()
+bioclean %>% head()
+```
+
+# Part 2
+
+1.Reformat the defClean data frame into a tidy format using pivot_longer. The type of statistic (Tackles_Solo, Tackles_ASST, etc) is added as a new key column named Statistic.
+```{r}
+defclean <- defclean %>% 
+  pivot_longer(c(3:11),
+               names_to ='statistic',
+               values_to = 'score')
+```
+
+2.Create a histogram for each defensive statistic. Use facet_wrap to draw all histograms in a single plot. What defensive skills are rare?
+```{r}
+defclean %>% 
+  ggplot(aes(x=score, fill=statistic))+geom_histogram(show.legend = FALSE)+theme_bw()+facet_wrap(~statistic)
+```
+
+3.Did ISU have better defense against West Virginia or Kansas State? Answer this question by creating a scatterplot with x-axis being the number of solo tackles (by each player) against West Virginia, and y-axis being that against Kansas State. A large number of solo tackles indicates good defense.
+
+```{r}
+defclean %>% 
+  filter(Opponent_Opponent %in% c('Kansas State', "West Virginia")) %>% 
+  filter(statistic == "Tackles_Solo") %>% 
+  group_by(Name) %>% 
+  mutate(count = n()) %>% 
+  filter(count == 2) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = Opponent_Opponent, values_from = score) %>% 
+  ggplot(aes(x=`West Virginia`, y=`Kansas State`))+geom_point()+theme_bw()+stat_smooth(method="lm", se=FALSE)
+```
+
+We can see that we had more solo tackles against West Viginia than Kansas State.
+
+1.Separate the Hometown column into two columns, namely the city and the state. Print the first few rows of these two columns. (Hint: look at the sep= argument of separate)
+```{r}
+bioclean <- bioclean %>% 
+  separate(Hometown, c('City', 'State'), ",", convert = TRUE)
+```
+
+2.How many players are there from each state?
+```{r}
+bioclean %>% 
+  group_by(State) %>% 
+  summarize(n=n())
+```
+
+# Part 3
+
+1.Find where do the offensive players come from by joining the offensive data and player biography data appropriately.
+```{r}
+offbioclean <- offclean %>% 
+  inner_join(bioclean)
+```
+
+2.Is there a relationship between the weight of a player and the receiving yards (Receiving_YDS)?
+```{r}
+offbioclean %>% 
+  ggplot(aes(x=Weight, y=Receiving_YDS))+geom_point()+theme_bw()+stat_smooth(method="lm", se=FALSE)
+```
+
+There is no relationship between weight and receiving yards.
+
+3.How do the performance of quarterback Brock Purdy relate to the performance of the ISU team?
+```{r}
+offbioclean
+offbioclean %>% 
+  filter(Position %in% c('Wide Receiver', "Running Back", "Tight End")) %>% 
+  ggplot(aes(x=Opponent_Opponent, y=Receiving_YDS))+geom_boxplot()+theme_bw()+coord_flip()+facet_wrap(~Position)
+```
+
+```{r}
+offbioclean %>% 
+  filter(Position == 'Quarterback') %>% 
+  ggplot(aes(x=Opponent_Opponent, y=Passing_YDS, group=1))+geom_line()+theme_bw()+coord_flip()
+```
+
+From the above graphs, the more yards that Brock Purdy threw, the larger the boxplots are for the receivers. So, the performance of Brock Purdy's performance increased the performance of his receivers.
+
+4.Explore more. You may in addition explore the 2018 data here. Raise a question that can be answered only by looking at two or more data frames. Then answer that question.
+
+Does your class determine the amount of receiving yards you are going to have?
+```{r}
+table(offbioclean$Class)
+
+offbioclean %>% 
+  filter(Position %in% c("Wide Receiver", "Tight End", "Running Back")) %>% 
+  mutate(Class = fct_reorder(Class, desc(Receiving_YDS))) %>% 
+  group_by(Class) %>% 
+  ggplot(aes(x=Class, y= Receiving_YDS))+geom_boxplot()+theme_bw()+coord_flip()
+  
+```
+
+Looking at the graph, we can see that redshirt junior had the most receiving yards and redshirt seniors had the least amount of receiving yards. So, no, the class of the player does not determine the amount of receiving yards a player is going to have.
+
+
+
+
+
+
+
+
